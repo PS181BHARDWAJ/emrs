@@ -1,6 +1,6 @@
 // Visitor Counter Module
 const visitorCounter = {
-  API_BASE: 'http://localhost:8000', // Local backend
+  API_BASE: 'https://emrs-fhj1.onrender.com', // Render backend
 
   // Initialize visitor counter on page load
   init: async function() {

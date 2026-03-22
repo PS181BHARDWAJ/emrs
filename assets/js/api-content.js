@@ -1,6 +1,6 @@
 // ================= CONFIG =================
-const API_BASE = 'http://localhost:8000/api';
-const BASE_URL = 'http://localhost:8000';
+const API_BASE = 'https://emrs-fhj1.onrender.com/api';
+const BASE_URL = 'https://emrs-fhj1.onrender.com';
 
 
 // ================= IMAGE URL FIX =================
