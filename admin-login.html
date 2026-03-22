@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MIS Login - EMRS Dornala</title>
+  <link rel="icon" type="image/x-icon" href="images/logo_emrs.ico" />
+  <style>
+    :root {
+      --emrs-purple: #5a0f61;
+      --emrs-purple-dark: #3b0a46;
+      --emrs-yellow: #f3e9b5;
+      --emrs-yellow-pattern: #ecdf9f;
+      --text-dark: #19283b;
+      --border-soft: #d6d9e0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f7f7fb;
+      color: var(--text-dark);
+    }
+
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top-header {
+      background: #fff;
+      border-top: 10px solid #2f2738;
+      border-bottom: 1px solid #e8ebf1;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .header-left,
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .header-logo {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .header-text h1 {
+      margin: 0;
+      color: #2c1d5f;
+      font-size: 30px;
+      line-height: 1.1;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .header-text .sub-1 {
+      margin: 4px 0 0;
+      font-size: 14px;
+      color: #1c2d45;
+      font-weight: 600;
+    }
+
+    .header-text .sub-2 {
+      margin: 2px 0 0;
+      font-size: 13px;
+      color: #1f2f4b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 840px;
+    }
+
+    .header-right {
+      margin-left: auto;
+    }
+
+    .ministry {
+      text-align: right;
+    }
+
+    .ministry .tagline {
+      font-size: 14px;
+      color: #b0372f;
+      font-weight: 700;
+    }
+
+    .nav-strip {
+      background: var(--emrs-purple-dark);
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px;
+    }
+
+    .nav-strip a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .nav-strip a.active {
+      background: #8e0ca3;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-top: 1px solid #dedeea;
+      align-items: stretch;
+      flex: 1;
+    }
+
+    .left-collage {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: repeat(3, minmax(0, 1fr));
+      gap: 3px;
+      background-color: var(--emrs-yellow);
+      background-image:
+        radial-gradient(circle at 12% 16%, rgba(188, 160, 84, 0.16) 0 4px, transparent 5px),
+        radial-gradient(circle at 78% 38%, rgba(188, 160, 84, 0.15) 0 5px, transparent 6px),
+        radial-gradient(circle at 58% 78%, rgba(188, 160, 84, 0.14) 0 4px, transparent 5px),
+        linear-gradient(45deg, transparent 24%, rgba(205, 177, 97, 0.12) 25%, rgba(205, 177, 97, 0.12) 27%, transparent 28%, transparent 74%, rgba(205, 177, 97, 0.12) 75%, rgba(205, 177, 97, 0.12) 77%, transparent 78%);
+      background-size: 190px 190px, 210px 210px, 170px 170px, 80px 80px;
+      border-right: 2px solid #f5f5f9;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      align-self: stretch;
+      overflow: hidden;
+    }
+
+    .left-collage img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #dde3ef;
+    }
+
+    .right-login-area {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background-color: var(--emrs-yellow);
+      background-image:
+        radial-gradient(circle at 12% 16%, rgba(188, 160, 84, 0.16) 0 4px, transparent 5px),
+        radial-gradient(circle at 78% 38%, rgba(188, 160, 84, 0.15) 0 5px, transparent 6px),
+        radial-gradient(circle at 58% 78%, rgba(188, 160, 84, 0.14) 0 4px, transparent 5px),
+        linear-gradient(45deg, transparent 24%, rgba(205, 177, 97, 0.12) 25%, rgba(205, 177, 97, 0.12) 27%, transparent 28%, transparent 74%, rgba(205, 177, 97, 0.12) 75%, rgba(205, 177, 97, 0.12) 77%, transparent 78%);
+      background-size: 190px 190px, 210px 210px, 170px 170px, 80px 80px;
+      height: 100%;
+    }
+
+    .login-card {
+      width: min(420px, 96%);
+      background: #fff;
+      border: 1px solid #d9dbe2;
+      border-radius: 10px;
+      box-shadow: 0 10px 24px rgba(27, 35, 52, 0.14);
+      padding: 18px 18px 16px;
+    }
+
+    .login-card h2 {
+      margin: 0 0 12px;
+      font-size: 21px;
+      color: #2f4763;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    .field {
+      margin-bottom: 10px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+      color: #1f2e40;
+      font-weight: 700;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      height: 40px;
+      border: 1px solid #c7d2e4;
+      border-radius: 4px;
+      padding: 0 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      background: #fff;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: #9fb9df;
+      box-shadow: 0 0 0 3px rgba(90, 15, 97, 0.12);
+    }
+
+    .row-between {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 6px 0 10px;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .remember {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #3b4d61;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .remember input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--emrs-purple);
+    }
+
+    .forgot {
+      color: #7a2fb4;
+      text-decoration: none;
+      font-size: 13px;
+    }
+
+    .forgot:hover {
+      text-decoration: underline;
+    }
+
+    .captcha-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .captcha-row span {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1d2f48;
+    }
+
+    .captcha-box {
+      min-height: 40px;
+      border: 1px dashed #9bb1ce;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #1c3f9c;
+      background: #f9fbff;
+      user-select: none;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .refresh-btn {
+      border: 0;
+      background: transparent;
+      color: #8f2fd1;
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
+    }
+
+    .refresh-btn:hover {
+      color: #6c1ea8;
+    }
+
+    .login-btn {
+      margin-top: 6px;
+      width: 100%;
+      height: 40px;
+      border: 0;
+      border-radius: 6px;
+      background: #8e0ca3;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .login-btn:hover {
+      background: #79098a;
+    }
+
+    .error-text {
+      color: #cf1f1f;
+      font-size: 12px;
+      min-height: 15px;
+      margin-top: 3px;
+      margin-bottom: 3px;
+    }
+
+    .alert {
+      display: none;
+      margin-top: 10px;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .alert.error {
+      display: block;
+      background: #fdeaea;
+      border: 1px solid #f0b6b6;
+      color: #8b1d1d;
+    }
+
+    .alert.success {
+      display: block;
+      background: #e8f7ee;
+      border: 1px solid #b4e2c0;
+      color: #19692f;
+    }
+
+    @media (max-width: 1300px) {
+      .header-text h1 {
+        font-size: 24px;
+      }
+      .header-text .sub-1,
+      .header-text .sub-2 {
+        font-size: 12px;
+      }
+      .nav-strip a {
+        font-size: 14px;
+      }
+      .login-card h2 {
+        font-size: 19px;
+      }
+      label {
+        font-size: 13px;
+      }
+      input[type="text"],
+      input[type="password"] {
+        font-size: 13px;
+      }
+      .captcha-row span {
+        font-size: 13px;
+      }
+      .captcha-box {
+        font-size: 22px;
+      }
+      .login-btn {
+        font-size: 14px;
+      }
+      .remember,
+      .forgot {
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 992px) {
+      .main {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+      .left-collage {
+        width: 100%;
+        height: auto;
+        border-right: 0;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: repeat(3, minmax(110px, 24vw));
+        gap: 2px;
+      }
+      .right-login-area {
+        min-height: auto;
+        padding: 14px 14px 18px;
+      }
+      .login-card {
+        width: min(460px, 100%);
+      }
+      .top-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header-right {
+        margin-left: 0;
+        width: 100%;
+        justify-content: space-between;
+      }
+      .nav-strip {
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .left-collage {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: repeat(3, minmax(96px, 28vw));
+        width: 100%;
+      }
+      .left-collage img {
+        height: 100%;
+        aspect-ratio: auto;
+      }
+      .login-card {
+        width: 100%;
+        padding: 14px 14px 12px;
+      }
+      .login-card h2 {
+        font-size: 18px;
+      }
+      .captcha-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .refresh-btn {
+        justify-self: start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="top-header">
+      <div class="header-left">
+        <img class="header-logo" src="WriteReadData/MD32145/dept_logo.jpg" alt="EMRS Logo" />
+        <div class="header-text">
+          <h1>National Education Society for Tribal Students</h1>
+          <p class="sub-1">(जनजातीय कार्य मंत्रालय के अंतर्गत एक स्वायत्त संस्थान), भारत सरकार</p>
+          <p class="sub-2">(An Autonomous organisation under Ministry of Tribal Affairs), Government of India</p>
+        </div>
+      </div>
+      
+    </header>
+
+    <nav class="nav-strip">
+      <a href="index.html">Home</a>
+      <a href="admin-dashboard.html">EMRS Dashboard</a>
+      <a href="admin-login.html" class="active">Login</a>
+    </nav>
+
+    <main class="main">
+      <section class="left-collage" aria-label="School activity collage">
+        <img src="WriteReadData/MD32145/events.jpg" alt="Students group" />
+        <img src="WriteReadData/MD32145/LIBRARY.jpg" alt="Library activity" />
+        <img src="WriteReadData/MD32145/flag hosting.jpg" alt="School activity" />
+        <img src="WriteReadData/MD32145/classwork.jpg" alt="Student study" />
+        <img src="WriteReadData/MD32145/classroom.jpg" alt="Classroom" />
+        <img src="WriteReadData/MD32145/Science lab.jpg" alt="Science classroom" />
+      </section>
+
+      <section class="right-login-area">
+        <div class="login-card">
+          <h2>Welcome to the Eklavya Model Residential School</h2>
+
+          <form id="loginForm" novalidate>
+            <div class="field">
+              <label for="username">Username</label>
+              <input type="text" id="username" name="username" autocomplete="username" />
+              <div id="usernameError" class="error-text"></div>
+            </div>
+
+            <div class="field">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" autocomplete="current-password" />
+              <div id="passwordError" class="error-text"></div>
+            </div>
+
+            <div class="row-between">
+              <label class="remember" for="rememberMe">
+                <input type="checkbox" id="rememberMe" />
+                Remember Me
+              </label>
+              <a class="forgot" href="contactus.html">Forgot password?</a>
+            </div>
+
+            <div class="captcha-row">
+              <span>Captcha</span>
+              <div id="captchaText" class="captcha-box" aria-live="polite"></div>
+              <button type="button" id="refreshCaptcha" class="refresh-btn" aria-label="Refresh captcha">↻</button>
+            </div>
+
+            <div class="field">
+              <input type="text" id="captchaInput" placeholder="Enter captcha" autocomplete="off" />
+              <div id="captchaError" class="error-text"></div>
+            </div>
+
+            <button id="loginButton" type="submit" class="login-btn">Login</button>
+            <div id="formAlert" class="alert" role="alert"></div>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = 'https://emrs-dornala-1.onrender.com/api';
+    const loginForm = document.getElementById('loginForm');
+    const usernameEl = document.getElementById('username');
+    const passwordEl = document.getElementById('password');
+    const rememberEl = document.getElementById('rememberMe');
+    const captchaTextEl = document.getElementById('captchaText');
+    const captchaInputEl = document.getElementById('captchaInput');
+    const refreshCaptchaBtn = document.getElementById('refreshCaptcha');
+    const loginButton = document.getElementById('loginButton');
+    const formAlert = document.getElementById('formAlert');
+
+    const usernameError = document.getElementById('usernameError');
+    const passwordError = document.getElementById('passwordError');
+    const captchaError = document.getElementById('captchaError');
+    const leftCollageEl = document.querySelector('.left-collage');
+    const loginCardEl = document.querySelector('.login-card');
+
+    let currentCaptcha = '';
+
+    function syncImageStackHeight() {
+      if (!leftCollageEl || !loginCardEl) {
+        return;
+      }
+
+      if (window.innerWidth <= 992) {
+        leftCollageEl.style.height = 'auto';
+        return;
+      }
+
+      const loginCardHeight = Math.ceil(loginCardEl.getBoundingClientRect().height);
+      const collageExtraHeight = 70;
+      leftCollageEl.style.height = `${loginCardHeight + collageExtraHeight}px`;
+    }
+
+    function generateCaptcha() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+      let value = '';
+      for (let i = 0; i < 6; i += 1) {
+        value += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      currentCaptcha = value;
+      captchaTextEl.textContent = value;
+    }
+
+    function clearErrors() {
+      usernameError.textContent = '';
+      passwordError.textContent = '';
+      captchaError.textContent = '';
+      formAlert.className = 'alert';
+      formAlert.textContent = '';
+    }
+
+    function showAlert(message, type) {
+      formAlert.className = `alert ${type}`;
+      formAlert.textContent = message;
+    }
+
+    function validateForm() {
+      clearErrors();
+      let isValid = true;
+
+      if (!usernameEl.value.trim()) {
+        usernameError.textContent = 'Username cannot be blank.';
+        isValid = false;
+      }
+
+      if (!passwordEl.value.trim()) {
+        passwordError.textContent = 'Password cannot be blank.';
+        isValid = false;
+      }
+
+      if (!captchaInputEl.value.trim()) {
+        captchaError.textContent = 'Captcha cannot be blank.';
+        isValid = false;
+      } else if (captchaInputEl.value.trim() !== currentCaptcha) {
+        captchaError.textContent = 'Invalid captcha. Please try again.';
+        isValid = false;
+      }
+
+      return isValid;
+    }
+
+    async function login(username, password) {
+      const payload = new URLSearchParams();
+      payload.append('username', username);
+      payload.append('password', password);
+
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: payload,
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || 'Invalid username or password.');
+      }
+
+      return response.json();
+    }
+
+    function loadRememberedUser() {
+      const remembered = localStorage.getItem('mis_remember') === '1';
+      const rememberedUser = localStorage.getItem('mis_username') || '';
+      if (remembered && rememberedUser) {
+        usernameEl.value = rememberedUser;
+        rememberEl.checked = true;
+      }
+    }
+
+    function persistRememberedUser() {
+      if (rememberEl.checked) {
+        localStorage.setItem('mis_remember', '1');
+        localStorage.setItem('mis_username', usernameEl.value.trim());
+      } else {
+        localStorage.removeItem('mis_remember');
+        localStorage.removeItem('mis_username');
+      }
+    }
+
+    refreshCaptchaBtn.addEventListener('click', () => {
+      captchaInputEl.value = '';
+      captchaError.textContent = '';
+      generateCaptcha();
+    });
+
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!validateForm()) {
+        return;
+      }
+
+      loginButton.disabled = true;
+      loginButton.textContent = 'Signing in...';
+
+      try {
+        const data = await login(usernameEl.value.trim(), passwordEl.value);
+        localStorage.setItem('emrs_token', data.access_token);
+        persistRememberedUser();
+        showAlert('Login successful. Redirecting...', 'success');
+        setTimeout(() => {
+          window.location.href = 'admin-dashboard.html';
+        }, 700);
+      } catch (error) {
+        showAlert('Login failed. Please check your credentials.', 'error');
+        captchaInputEl.value = '';
+        generateCaptcha();
+      } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = 'Login';
+      }
+    });
+
+    generateCaptcha();
+    loadRememberedUser();
+    syncImageStackHeight();
+
+    if (window.ResizeObserver && loginCardEl) {
+      const layoutObserver = new ResizeObserver(() => {
+        syncImageStackHeight();
+      });
+      layoutObserver.observe(loginCardEl);
+    }
+
+    window.addEventListener('resize', syncImageStackHeight);
+  </script>
+</body>
+</html>

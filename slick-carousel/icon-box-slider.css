@@ -1,0 +1,81 @@
+.box {
+    /* background-color: #fff;*/
+}
+
+.box a {
+    color: #000;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 10px 10px;
+    text-align: center;
+    margin-right: 10px;
+    text-align: center;
+    border: 0px solid red;
+    transition: none;
+    float: left;
+}
+.slider-img {
+    width: 100%;
+    height: 811px;
+    object-fit: cover;
+}
+
+
+.slick-slide img {
+    display: block;
+    text-align: center;
+    margin: 0px auto;
+}
+
+.box a img {
+    height: 60px;
+    width: 100%;
+}
+
+.box:hover {
+    background-color: ;
+}
+
+.box:hover a {
+    color: #fff;
+    text-decoration: none;
+}
+
+.mission-next-arrow {
+    position: absolute;
+    background: url(nextarrow2.png) no-repeat center;
+    background-size: contain;
+    top: 40%;
+    transform: translateY(-50%);
+    right: -36px;
+    height: 17px;
+    width: 10px;
+    border: none;
+}
+
+.mission-next-arrow:hover {
+    cursor: pointer;
+}
+
+.mission-prev-arrow {
+    background: url(prevarrow2.png) no-repeat center;
+    background-size: contain;
+    position: absolute;
+    top: 40%;
+    transform: translateY(-50%);
+    left: -36px;
+    height: 17px;
+    width: 10px;
+    border: none;
+}
+
+.mission-prev-arrow:hover {
+    cursor: pointer;
+}
+
+.box a.more-links {
+    color: #fff;
+    padding: 70px 110px 0 20px;
+    background: #a89269 url(rightarrow.png) no-repeat 155px 170px;
+}

@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EMRS Dornala Admin Dashboard</title>
+  <link rel="stylesheet" href="assets/css/bootstrap.min.css" />
+  <style>
+    body {background:#f4f6f9;}
+    #sidebar {min-height:100vh; border-right:1px solid #dee2e6;}
+    .sidebar-item {cursor:pointer; padding:.8rem 1rem;}
+    .sidebar-item.active {background:#007bff; color:#fff;}
+    .card {border-radius:12px;}
+    .modal-backdrop {opacity:.2!important;}
+  </style>
+</head>
+<body>
+<div class="d-flex">
+  <nav id="sidebar" class="bg-white p-3" style="width:260px;">
+    <h4 class="mb-4">ADMIN</h4>
+    <div id="navAnnouncements" class="sidebar-item">Manage Announcements</div>
+    <div id="navNotifications" class="sidebar-item">Manage Notifications</div>
+    <div id="navEventItems" class="sidebar-item">Manage Achievements & Events</div>
+    <div id="navCalendar" class="sidebar-item">Manage Calendar</div>
+    <div id="navStaff" class="sidebar-item">Manage Staff</div>
+    <hr>
+    <button id="logoutBtn" class="btn btn-sm btn-danger">Logout</button>
+  </nav>
+
+  <div class="flex-grow-1 p-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3 id="panelTitle">Manage Announcements</h3>
+    </div>
+
+    <div id="alerts"></div>
+
+    <div id="announcementManager" class="d-none"></div>
+    <div id="notificationManager" class="d-none"></div>
+    <div id="eventsManager" class="d-none"></div>
+    <div id="calendarManager" class="d-none"></div>
+    <div id="staffManager" class="d-none"></div>
+  </div>
+</div>
+
+<script>
+const baseUrl = localStorage.getItem('emrs_api_base') || 'https://emrs-dornala-1.onrender.com/api';
+const mediaBaseUrl = baseUrl.replace(/\/api\/?$/, '');
+const token = localStorage.getItem('emrs_token');
+if(!token) { window.location.href='admin-login.html'; }
+
+let editSectionId = null;
+
+const panelTitle = document.getElementById('panelTitle');
+const announcementManager = document.getElementById('announcementManager');
+const notificationManager = document.getElementById('notificationManager');
+const eventsManager = document.getElementById('eventsManager');
+const calendarManager = document.getElementById('calendarManager');
+const staffManager = document.getElementById('staffManager');
+let cachedEventItems = [];
+let cachedCalendarItems = [];
+let cachedStaffItems = [];
+
+function showAlert(message, type='success') {
+  document.getElementById('alerts').innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+  setTimeout(()=>document.getElementById('alerts').innerHTML='',3000);
+}
+
+function normalizeMediaUrl(url) {
+  if (!url) return '';
+  const value = String(url);
+  if (value.startsWith('http://') || value.startsWith('https://')) return value;
+  if (value.startsWith('/')) return `${mediaBaseUrl}${value}`;
+  return `${mediaBaseUrl}/uploads/${value.replace(/^\/+/, '')}`;
+}
+
+function setActiveNav(selectedPage) {
+  document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+  const item = document.querySelector(`[data-page='${selectedPage}']`);
+  if(item) item.classList.add('active');
+}
+
+function escapeHtml(text) {
+  return String(text||'')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\n/g, '\\n');
+}
+
+async function loadAnnouncements(){
+  document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+  document.getElementById('navAnnouncements').classList.add('active');
+  loadAnnouncementManager('whats_new');
+}
+
+async function loadNotifications(){
+  document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+  document.getElementById('navNotifications').classList.add('active');
+  loadAnnouncementManager('notification');
+}
+
+function fillAnnouncementForm(item){
+  document.getElementById('annEditId').value = item.id || '';
+  document.getElementById('annTitle').value = item.title || '';
+  document.getElementById('annMessage').value = item.message || '';
+  document.getElementById('annLink').value = item.link && item.link !== '#' ? item.link : '';
+  document.getElementById('annPdfUrl').value = item.pdf_url || '';
+  document.getElementById('annFileSize').value = item.file_size || '';
+  document.getElementById('annCategory').value = item.category || 'notification';
+  document.getElementById('annIsNew').checked = !!item.is_new;
+  document.getElementById('annShowTicker').checked = !!item.show_in_ticker;
+  document.getElementById('annActive').checked = !!item.active;
+  document.getElementById('announcementFormTitle').textContent = 'Edit Item';
+  document.getElementById('announcementSubmitBtn').textContent = 'Update';
+}
+
+function resetAnnouncementForm(defaultCategory){
+  document.getElementById('annEditId').value = '';
+  document.getElementById('annTitle').value = '';
+  document.getElementById('annMessage').value = '';
+  document.getElementById('annLink').value = '';
+  document.getElementById('annPdfUrl').value = '';
+  document.getElementById('annFileSize').value = '';
+  document.getElementById('annImage').value = '';
+  document.getElementById('annPdfFile').value = '';
+  document.getElementById('annCategory').value = defaultCategory;
+  document.getElementById('annIsNew').checked = false;
+  document.getElementById('annShowTicker').checked = true;
+  document.getElementById('annActive').checked = true;
+  document.getElementById('announcementFormTitle').textContent = defaultCategory === 'whats_new' ? 'Add What\'s New Item' : 'Add Notification Item';
+  document.getElementById('announcementSubmitBtn').textContent = 'Add';
+}
+
+async function loadAnnouncementManager(category){
+  const isWhatsNew = category === 'whats_new';
+  panelTitle.textContent = isWhatsNew ? 'Manage Announcements' : 'Manage Notifications';
+  announcementManager.classList.remove('d-none');
+  notificationManager.classList.add('d-none');
+  eventsManager.classList.add('d-none');
+  calendarManager.classList.add('d-none');
+  staffManager.classList.add('d-none');
+
+  let list = [];
+  try {
+    const response = await fetch(`${baseUrl}/announcements/all`, {headers:{'Authorization':'Bearer '+token}});
+    if (!response.ok) {
+      throw new Error(`Request failed (${response.status})`);
+    }
+    const payload = await response.json();
+    list = Array.isArray(payload) ? payload : [];
+  } catch (error) {
+    showAlert('Unable to load announcements. Please login again or check API connectivity.', 'danger');
+    announcementManager.innerHTML = `<div class="card p-3"><p class="mb-0 text-danger">Could not load data from API.</p></div>`;
+    return;
+  }
+
+  const filtered = list.filter(item => (item.category || 'notification') === category);
+
+  announcementManager.innerHTML = `<div class="card p-3 mb-3">
+      <h5 id="announcementFormTitle">${isWhatsNew ? 'Add What\'s New Item' : 'Add Notification Item'}</h5>
+      <form id="announcementForm" onsubmit="return false;">
+        <input type="hidden" id="annEditId">
+        <div class="mb-2"><label>Title</label><input id="annTitle" class="form-control" required></div>
+        <div class="mb-2"><label>Description</label><textarea id="annMessage" class="form-control" rows="3"></textarea></div>
+        <div class="mb-2"><label>Link</label><input id="annLink" class="form-control" placeholder="https://..."></div>
+        <div class="mb-2"><label>PDF URL</label><input id="annPdfUrl" class="form-control" placeholder="/uploads/...pdf"></div>
+        <div class="mb-2"><label>PDF File (Upload)</label><input type="file" id="annPdfFile" class="form-control" accept="application/pdf"></div>
+        <div class="mb-2"><label>File Size</label><input id="annFileSize" class="form-control" placeholder="128 KB"></div>
+        <div class="mb-2"><label>Image</label><input type="file" id="annImage" class="form-control" accept="image/*"></div>
+        <div class="mb-2"><label>Category</label><select id="annCategory" class="form-control"><option value="whats_new">What's New</option><option value="notification">Notification</option></select></div>
+        <div class="mb-2 form-check"><input type="checkbox" id="annIsNew" class="form-check-input"><label class="form-check-label" for="annIsNew">Show NEW badge</label></div>
+        <div class="mb-2 form-check"><input type="checkbox" id="annShowTicker" class="form-check-input" checked><label class="form-check-label" for="annShowTicker">Show in top ticker</label></div>
+        <div class="mb-2 form-check"><input type="checkbox" id="annActive" class="form-check-input" checked><label class="form-check-label" for="annActive">Active</label></div>
+        <button id="announcementSubmitBtn" class="btn btn-primary" onclick="saveAnnouncement('${category}')">Add</button>
+        <button class="btn btn-secondary" type="button" onclick="resetAnnouncementForm('${category}')">Reset</button>
+      </form>
+    </div>
+    <div class="card p-3"><h5>Existing Items</h5><table class="table table-sm"><thead><tr><th>Title</th><th>NEW</th><th>Ticker</th><th>Active</th><th>Actions</th></tr></thead><tbody>${filtered.length ? filtered.map(item=>`<tr><td>${item.title || ''}</td><td>${item.is_new ? 'Yes':'No'}</td><td>${item.show_in_ticker ? 'Yes':'No'}</td><td>${item.active ? 'Yes':'No'}</td><td><button class='btn btn-sm btn-primary' onclick='editAnnouncement("${item.id}", "${category}")'>Edit</button> <button class='btn btn-sm btn-secondary' onclick='toggleAnnouncement("${item.id}", "${category}")'>Toggle</button> <button class='btn btn-sm btn-danger' onclick='deleteAnnouncement("${item.id}", "${category}")'>Delete</button></td></tr>`).join('') : `<tr><td colspan="5">No items found.</td></tr>`}</tbody></table></div>`;
+
+  const categoryInput = document.getElementById('annCategory');
+  categoryInput.value = category;
+}
+
+async function saveAnnouncement(defaultCategory){
+  const editId = document.getElementById('annEditId').value;
+  const title = document.getElementById('annTitle').value;
+  const message = document.getElementById('annMessage').value;
+  const link = document.getElementById('annLink').value;
+  const pdfUrl = document.getElementById('annPdfUrl').value;
+  const fileSize = document.getElementById('annFileSize').value;
+  const category = document.getElementById('annCategory').value || defaultCategory;
+  const isNew = document.getElementById('annIsNew').checked;
+  const showInTicker = document.getElementById('annShowTicker').checked;
+  const active = document.getElementById('annActive').checked;
+  const image = document.getElementById('annImage').files[0];
+  const pdfFile = document.getElementById('annPdfFile').files[0];
+
+  const formData = new FormData();
+  formData.append('title', title);
+  formData.append('message', message);
+  formData.append('link', link);
+  formData.append('pdf_url', pdfUrl);
+  formData.append('file_size', fileSize);
+  formData.append('category', category);
+  formData.append('is_new', isNew);
+  formData.append('show_in_ticker', showInTicker);
+  formData.append('active', active);
+  if(image) formData.append('image', image);
+  if(pdfFile) formData.append('pdf_file', pdfFile);
+
+  const method = editId ? 'PUT' : 'POST';
+  const url = editId ? `${baseUrl}/announcements/${editId}` : `${baseUrl}/announcements`;
+
+  const res = await fetch(url, {method, body: formData, headers:{'Authorization':'Bearer '+token}});
+  if(!res.ok){
+    const text = await res.text();
+    showAlert(`Save failed: ${text}`,'danger');
+    return;
+  }
+  showAlert(editId ? 'Updated item' : 'Created item');
+  loadAnnouncementManager(defaultCategory);
+}
+
+async function editAnnouncement(id, defaultCategory){
+  const list = await fetch(`${baseUrl}/announcements/all`, {headers:{'Authorization':'Bearer '+token}}).then(r=>r.json());
+  const item = list.find(entry => entry.id === id);
+  if(!item){
+    showAlert('Item not found', 'danger');
+    return;
+  }
+  fillAnnouncementForm(item);
+  if(!item.category){
+    document.getElementById('annCategory').value = defaultCategory;
+  }
+}
+
+async function toggleAnnouncement(id, defaultCategory){
+  await fetch(`${baseUrl}/announcements/${id}/toggle`, {method:'PATCH', headers:{'Authorization':'Bearer '+token}});
+  loadAnnouncementManager(defaultCategory);
+}
+
+async function deleteAnnouncement(id, defaultCategory){
+  await fetch(`${baseUrl}/announcements/${id}`, {method:'DELETE', headers:{'Authorization':'Bearer '+token}});
+  loadAnnouncementManager(defaultCategory);
+}
+
+function previewEventImage(input) {
+  const file = input.files && input.files[0];
+  const preview = document.getElementById('eventImagePreview');
+  if (!preview) return;
+
+  if (!file) {
+    preview.style.display = 'none';
+    preview.src = '';
+    return;
+  }
+
+  const url = URL.createObjectURL(file);
+  preview.src = url;
+  preview.style.display = 'block';
+}
+
+function fillEventForm(item) {
+  document.getElementById('eventEditId').value = item.id || '';
+  document.getElementById('eventTitle').value = item.title || '';
+  document.getElementById('eventShortDescription').value = item.short_description || '';
+  document.getElementById('eventFullDescription').value = item.full_description || '';
+  document.getElementById('eventCategory').value = item.category || 'event';
+  document.getElementById('eventDate').value = item.event_date || '';
+  document.getElementById('eventActive').checked = !!item.active;
+  document.getElementById('eventFormTitle').textContent = 'Edit Item';
+  document.getElementById('eventSubmitBtn').textContent = 'Update';
+
+  const preview = document.getElementById('eventImagePreview');
+  if (item.image_url) {
+    preview.src = normalizeMediaUrl(item.image_url);
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+    preview.src = '';
+  }
+}
+
+function resetEventForm(defaultCategory) {
+  document.getElementById('eventEditId').value = '';
+  document.getElementById('eventTitle').value = '';
+  document.getElementById('eventShortDescription').value = '';
+  document.getElementById('eventFullDescription').value = '';
+  document.getElementById('eventCategory').value = defaultCategory;
+  document.getElementById('eventDate').value = '';
+  document.getElementById('eventImage').value = '';
+  document.getElementById('eventActive').checked = true;
+  document.getElementById('eventFormTitle').textContent = defaultCategory === 'home_slider' ? 'Add Home Slider Item' : 'Add Achievement / Event';
+  document.getElementById('eventSubmitBtn').textContent = 'Add';
+
+  const preview = document.getElementById('eventImagePreview');
+  preview.style.display = 'none';
+  preview.src = '';
+}
+
+async function loadEventManager(defaultCategory = 'event') {
+  document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+  document.getElementById('navEventItems').classList.add('active');
+  panelTitle.textContent = 'Manage Achievements & Events';
+  announcementManager.classList.add('d-none');
+  notificationManager.classList.add('d-none');
+  eventsManager.classList.remove('d-none');
+  calendarManager.classList.add('d-none');
+  staffManager.classList.add('d-none');
+
+  const response = await fetch(`${baseUrl}/events/all`, {headers: {'Authorization':'Bearer '+token}});
+  if (!response.ok) {
+    showAlert('Unable to load event items', 'danger');
+    return;
+  }
+
+  cachedEventItems = await response.json();
+
+  eventsManager.innerHTML = `
+    <div class="card p-3 mb-3">
+      <h5 id="eventFormTitle">Add Achievement / Event</h5>
+      <form id="eventForm" onsubmit="return false;">
+        <input type="hidden" id="eventEditId">
+        <div class="mb-2"><label>Title</label><input id="eventTitle" class="form-control" required></div>
+        <div class="mb-2"><label>Short Description (2-3 lines)</label><textarea id="eventShortDescription" class="form-control" rows="2" required></textarea></div>
+        <div class="mb-2"><label>Full Description</label><textarea id="eventFullDescription" class="form-control" rows="5"></textarea></div>
+        <div class="mb-2"><label>Category</label>
+          <select id="eventCategory" class="form-control">
+            <option value="achievement">Achievement</option>
+            <option value="event">Event</option>
+            <option value="home_slider">Home Slider</option>
+          </select>
+        </div>
+        <div class="mb-2"><label>Date (Optional)</label><input id="eventDate" class="form-control" type="date"></div>
+        <div class="mb-2"><label>Image</label><input type="file" id="eventImage" class="form-control" accept="image/*" onchange="previewEventImage(this)"></div>
+        <div class="mb-2"><img id="eventImagePreview" alt="Preview" style="display:none; width:220px; max-width:100%; border:1px solid #d8dee9; border-radius:6px;"></div>
+        <div class="mb-2 form-check"><input type="checkbox" id="eventActive" class="form-check-input" checked><label class="form-check-label" for="eventActive">Active</label></div>
+        <button id="eventSubmitBtn" class="btn btn-primary" onclick="saveEventItem('${defaultCategory}')">Add</button>
+        <button type="button" class="btn btn-secondary" onclick="resetEventForm('${defaultCategory}')">Reset</button>
+      </form>
+    </div>
+    <div class="card p-3">
+      <h5>Existing Items</h5>
+      <table class="table table-sm">
+        <thead><tr><th>Title</th><th>Category</th><th>Date</th><th>Active</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${cachedEventItems.length ? cachedEventItems.map(item => `
+            <tr>
+              <td>${item.title || ''}</td>
+              <td>${item.category || 'event'}</td>
+              <td>${item.event_date || '-'}</td>
+              <td>${item.active ? 'Yes' : 'No'}</td>
+              <td>
+                <button class='btn btn-sm btn-primary' onclick='editEventItem("${item.id}")'>Edit</button>
+                <button class='btn btn-sm btn-danger' onclick='deleteEventItem("${item.id}", "${defaultCategory}")'>Delete</button>
+              </td>
+            </tr>
+          `).join('') : `<tr><td colspan="5">No items found.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  document.getElementById('eventCategory').value = defaultCategory;
+}
+
+async function saveEventItem(defaultCategory) {
+  const editId = document.getElementById('eventEditId').value;
+  const title = document.getElementById('eventTitle').value;
+  const shortDescription = document.getElementById('eventShortDescription').value;
+  const fullDescription = document.getElementById('eventFullDescription').value;
+  const category = document.getElementById('eventCategory').value || defaultCategory;
+  const eventDate = document.getElementById('eventDate').value;
+  const active = document.getElementById('eventActive').checked;
+  const image = document.getElementById('eventImage').files[0];
+
+  const formData = new FormData();
+  formData.append('title', title);
+  formData.append('short_description', shortDescription);
+  formData.append('full_description', fullDescription);
+  formData.append('category', category);
+  formData.append('event_date', eventDate);
+  formData.append('active', active);
+  if (image) formData.append('image', image);
+
+  const method = editId ? 'PUT' : 'POST';
+  const url = editId ? `${baseUrl}/events/${editId}` : `${baseUrl}/events`;
+  const response = await fetch(url, {method, body: formData, headers:{'Authorization':'Bearer '+token}});
+
+  if (!response.ok) {
+    const text = await response.text();
+    showAlert(`Save failed: ${text}`, 'danger');
+    return;
+  }
+
+  showAlert(editId ? 'Updated event item' : 'Created event item');
+  loadEventManager(defaultCategory);
+}
+
+function editEventItem(id) {
+  const item = cachedEventItems.find((entry) => entry.id === id);
+  if (!item) {
+    showAlert('Item not found', 'danger');
+    return;
+  }
+  fillEventForm(item);
+}
+
+async function deleteEventItem(id, defaultCategory) {
+  if (!confirm('Delete this item?')) return;
+  const response = await fetch(`${baseUrl}/events/${id}`, {method:'DELETE', headers:{'Authorization':'Bearer '+token}});
+  if (!response.ok) {
+    showAlert('Delete failed', 'danger');
+    return;
+  }
+  showAlert('Deleted');
+  loadEventManager(defaultCategory);
+}
+
+function getMonthOptions(selected = '') {
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return months.map(month => `<option value="${month}" ${month === selected ? 'selected' : ''}>${month}</option>`).join('');
+}
+
+async function loadCalendarManager() {
+  document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+  document.getElementById('navCalendar').classList.add('active');
+  panelTitle.textContent = 'Manage Calendar';
+
+  announcementManager.classList.add('d-none');
+  notificationManager.classList.add('d-none');
+  eventsManager.classList.add('d-none');
+  staffManager.classList.add('d-none');
+  calendarManager.classList.remove('d-none');
+
+  const res = await fetch(`${baseUrl}/calendar/all`, {headers:{'Authorization':'Bearer '+token}});
+  if (!res.ok) {
+    showAlert('Unable to load calendar', 'danger');
+    return;
+  }
+
+  cachedCalendarItems = await res.json();
+
+  calendarManager.innerHTML = `
+    <div class="card p-3 mb-3">
+      <h5 id="calendarFormTitle">Add Calendar Row</h5>
+      <form onsubmit="return false;">
+        <input type="hidden" id="calEditId">
+        <div class="mb-2"><label>Month</label><select id="calMonth" class="form-control">${getMonthOptions()}</select></div>
+        <div class="mb-2"><label>Activity</label><input id="calActivity" class="form-control" required></div>
+        <div class="mb-2"><label>Details</label><textarea id="calDetails" class="form-control" rows="3" required></textarea></div>
+        <div class="mb-2 form-check"><input type="checkbox" id="calActive" class="form-check-input" checked><label class="form-check-label" for="calActive">Active</label></div>
+        <button class="btn btn-primary" onclick="saveCalendarItem()" id="calSubmitBtn">Add</button>
+        <button class="btn btn-secondary" type="button" onclick="resetCalendarForm()">Reset</button>
+      </form>
+    </div>
+    <div class="card p-3">
+      <h5>Calendar Rows</h5>
+      <table class="table table-sm">
+        <thead><tr><th>Month</th><th>Activity</th><th>Details</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${cachedCalendarItems.length ? cachedCalendarItems.map(item => `
+            <tr>
+              <td>${item.month || ''}</td>
+              <td>${item.activity || ''}</td>
+              <td>${item.details || ''}</td>
+              <td>
+                <button class='btn btn-sm btn-primary' onclick='editCalendarItem("${item.id}")'>Edit</button>
+                <button class='btn btn-sm btn-secondary' onclick='moveCalendarItem("${item.id}","up")'>↑</button>
+                <button class='btn btn-sm btn-secondary' onclick='moveCalendarItem("${item.id}","down")'>↓</button>
+                <button class='btn btn-sm btn-danger' onclick='deleteCalendarItem("${item.id}")'>Delete</button>
+              </td>
+            </tr>
+          `).join('') : `<tr><td colspan="4">No calendar rows found.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function resetCalendarForm() {
+  document.getElementById('calEditId').value = '';
+  document.getElementById('calMonth').value = 'January';
+  document.getElementById('calActivity').value = '';
+  document.getElementById('calDetails').value = '';
+  document.getElementById('calActive').checked = true;
+  document.getElementById('calendarFormTitle').textContent = 'Add Calendar Row';
+  document.getElementById('calSubmitBtn').textContent = 'Add';
+}
+
+function editCalendarItem(id) {
+  const item = cachedCalendarItems.find(entry => entry.id === id);
+  if (!item) {
+    showAlert('Calendar row not found', 'danger');
+    return;
+  }
+  document.getElementById('calEditId').value = item.id;
+  document.getElementById('calMonth').value = item.month || 'January';
+  document.getElementById('calActivity').value = item.activity || '';
+  document.getElementById('calDetails').value = item.details || '';
+  document.getElementById('calActive').checked = !!item.active;
+  document.getElementById('calendarFormTitle').textContent = 'Edit Calendar Row';
+  document.getElementById('calSubmitBtn').textContent = 'Update';
+}
+
+async function saveCalendarItem() {
+  const editId = document.getElementById('calEditId').value;
+  const formData = new FormData();
+  formData.append('month', document.getElementById('calMonth').value);
+  formData.append('activity', document.getElementById('calActivity').value);
+  formData.append('details', document.getElementById('calDetails').value);
+  formData.append('active', document.getElementById('calActive').checked);
+
+  const method = editId ? 'PUT' : 'POST';
+  const url = editId ? `${baseUrl}/calendar/${editId}` : `${baseUrl}/calendar`;
+  const res = await fetch(url, {method, body: formData, headers:{'Authorization':'Bearer '+token}});
+  if (!res.ok) {
+    showAlert('Save calendar row failed', 'danger');
+    return;
+  }
+  showAlert(editId ? 'Calendar row updated' : 'Calendar row added');
+  await loadCalendarManager();
+  resetCalendarForm();
+}
+
+async function deleteCalendarItem(id) {
+  if (!confirm('Delete this calendar row?')) return;
+  const res = await fetch(`${baseUrl}/calendar/${id}`, {method:'DELETE', headers:{'Authorization':'Bearer '+token}});
+  if (!res.ok) {
+    showAlert('Delete failed', 'danger');
+    return;
+  }
+  showAlert('Deleted');
+  loadCalendarManager();
+}
+
+async function moveCalendarItem(id, direction) {
+  const res = await fetch(`${baseUrl}/calendar/${id}/move?direction=${direction}`, {method:'PATCH', headers:{'Authorization':'Bearer '+token}});
+  if (!res.ok) {
+    showAlert('Reorder failed', 'danger');
+    return;
+  }
+  loadCalendarManager();
+}
+
+async function loadStaffManager() {
+  document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+  document.getElementById('navStaff').classList.add('active');
+  panelTitle.textContent = 'Manage Staff';
+
+  announcementManager.classList.add('d-none');
+  notificationManager.classList.add('d-none');
+  eventsManager.classList.add('d-none');
+  calendarManager.classList.add('d-none');
+  staffManager.classList.remove('d-none');
+
+  const res = await fetch(`${baseUrl}/staff/all`, {headers:{'Authorization':'Bearer '+token}});
+  if (!res.ok) {
+    showAlert('Unable to load staff', 'danger');
+    return;
+  }
+
+  cachedStaffItems = await res.json();
+
+  staffManager.innerHTML = `
+    <div class="card p-3 mb-3">
+      <h5 id="staffFormTitle">Add Staff</h5>
+      <form onsubmit="return false;">
+        <input type="hidden" id="staffEditId">
+        <div class="mb-2"><label>Photo</label><input type="file" id="staffPhoto" class="form-control" accept="image/*" onchange="previewStaffPhoto(this)"></div>
+        <div class="mb-2"><img id="staffPhotoPreview" alt="Preview" style="display:none; width:120px; height:120px; object-fit:cover; border-radius:10px; border:1px solid #d8dee9;"></div>
+        <div class="mb-2"><label>Name</label><input id="staffName" class="form-control" required></div>
+        <div class="mb-2"><label>Designation</label><input id="staffDesignation" class="form-control" required></div>
+        <div class="mb-2"><label>Department</label><input id="staffDepartment" class="form-control" required></div>
+        <div class="mb-2"><label>Contact / Email</label><input id="staffContact" class="form-control"></div>
+        <div class="mb-2 form-check"><input type="checkbox" id="staffActive" class="form-check-input" checked><label class="form-check-label" for="staffActive">Active</label></div>
+        <button class="btn btn-primary" id="staffSubmitBtn" onclick="saveStaffItem()">Add</button>
+        <button type="button" class="btn btn-secondary" onclick="resetStaffForm()">Reset</button>
+      </form>
+    </div>
+    <div class="card p-3">
+      <h5>Staff Directory Items</h5>
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>Designation</th><th>Department</th><th>Contact</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${cachedStaffItems.length ? cachedStaffItems.map(item => `
+            <tr>
+              <td>${item.name || ''}</td>
+              <td>${item.designation || ''}</td>
+              <td>${item.department || ''}</td>
+              <td>${item.contact || ''}</td>
+              <td>
+                <button class='btn btn-sm btn-primary' onclick='editStaffItem("${item.id}")'>Edit</button>
+                <button class='btn btn-sm btn-secondary' onclick='moveStaffItem("${item.id}","up")'>↑</button>
+                <button class='btn btn-sm btn-secondary' onclick='moveStaffItem("${item.id}","down")'>↓</button>
+                <button class='btn btn-sm btn-danger' onclick='deleteStaffItem("${item.id}")'>Delete</button>
+              </td>
+            </tr>
+          `).join('') : `<tr><td colspan="5">No staff entries found.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function previewStaffPhoto(input) {
+  const preview = document.getElementById('staffPhotoPreview');
+  const file = input.files && input.files[0];
+  if (!preview) return;
+  if (!file) {
+    preview.style.display = 'none';
+    preview.src = '';
+    return;
+  }
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+}
+
+function resetStaffForm() {
+  document.getElementById('staffEditId').value = '';
+  document.getElementById('staffName').value = '';
+  document.getElementById('staffDesignation').value = '';
+  document.getElementById('staffDepartment').value = '';
+  document.getElementById('staffContact').value = '';
+  document.getElementById('staffPhoto').value = '';
+  document.getElementById('staffActive').checked = true;
+  document.getElementById('staffFormTitle').textContent = 'Add Staff';
+  document.getElementById('staffSubmitBtn').textContent = 'Add';
+  const preview = document.getElementById('staffPhotoPreview');
+  preview.style.display = 'none';
+  preview.src = '';
+}
+
+function editStaffItem(id) {
+  const item = cachedStaffItems.find(entry => entry.id === id);
+  if (!item) {
+    showAlert('Staff item not found', 'danger');
+    return;
+  }
+  document.getElementById('staffEditId').value = item.id;
+  document.getElementById('staffName').value = item.name || '';
+  document.getElementById('staffDesignation').value = item.designation || '';
+  document.getElementById('staffDepartment').value = item.department || '';
+  document.getElementById('staffContact').value = item.contact || item.email || item.phone || '';
+  document.getElementById('staffActive').checked = !!item.active;
+  document.getElementById('staffFormTitle').textContent = 'Edit Staff';
+  document.getElementById('staffSubmitBtn').textContent = 'Update';
+
+  const preview = document.getElementById('staffPhotoPreview');
+  if (item.photo_url) {
+    preview.src = normalizeMediaUrl(item.photo_url);
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+    preview.src = '';
+  }
+}
+
+async function saveStaffItem() {
+  const editId = document.getElementById('staffEditId').value;
+  const formData = new FormData();
+  formData.append('name', document.getElementById('staffName').value);
+  formData.append('designation', document.getElementById('staffDesignation').value);
+  formData.append('department', document.getElementById('staffDepartment').value);
+  formData.append('contact', document.getElementById('staffContact').value);
+  formData.append('active', document.getElementById('staffActive').checked);
+
+  const photo = document.getElementById('staffPhoto').files[0];
+  if (photo) formData.append('photo', photo);
+
+  const method = editId ? 'PUT' : 'POST';
+  const url = editId ? `${baseUrl}/staff/${editId}` : `${baseUrl}/staff`;
+  const res = await fetch(url, {method, body: formData, headers:{'Authorization':'Bearer '+token}});
+  if (!res.ok) {
+    showAlert('Save staff failed', 'danger');
+    return;
+  }
+  showAlert(editId ? 'Staff updated' : 'Staff added');
+  await loadStaffManager();
+  resetStaffForm();
+}
+
+async function deleteStaffItem(id) {
+  if (!confirm('Delete this staff item?')) return;
+  const res = await fetch(`${baseUrl}/staff/${id}`, {method:'DELETE', headers:{'Authorization':'Bearer '+token}});
+  if (!res.ok) {
+    showAlert('Delete staff failed', 'danger');
+    return;
+  }
+  showAlert('Deleted');
+  loadStaffManager();
+}
+
+async function moveStaffItem(id, direction) {
+  const res = await fetch(`${baseUrl}/staff/${id}/move?direction=${direction}`, {method:'PATCH', headers:{'Authorization':'Bearer '+token}});
+  if (!res.ok) {
+    showAlert('Reorder staff failed', 'danger');
+    return;
+  }
+  loadStaffManager();
+}
+
+function init() {
+  document.getElementById('logoutBtn').addEventListener('click', ()=>{localStorage.removeItem('emrs_token'); window.location='admin-login.html';});
+  document.getElementById('navAnnouncements').addEventListener('click', loadAnnouncements);
+  document.getElementById('navNotifications').addEventListener('click', loadNotifications);
+  document.getElementById('navEventItems').addEventListener('click', () => loadEventManager('event'));
+  document.getElementById('navCalendar').addEventListener('click', loadCalendarManager);
+  document.getElementById('navStaff').addEventListener('click', loadStaffManager);
+  loadAnnouncements();
+}
+
+init();
+</script>
+</body>
+</html>
