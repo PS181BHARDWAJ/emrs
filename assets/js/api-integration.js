@@ -1,4 +1,4 @@
-const emrsBaseURL = "https://emrs-dornala-1.onrender.com/api";
+const emrsBaseURL = "http://localhost:8000/api";
 
 async function fetchAnnouncements() {
   const response = await fetch(`${emrsBaseURL}/announcements`);

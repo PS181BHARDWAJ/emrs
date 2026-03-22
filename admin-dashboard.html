@@ -43,7 +43,7 @@
 </div>
 
 <script>
-const baseUrl = localStorage.getItem('emrs_api_base') || 'https://emrs-dornala-1.onrender.com/api';
+const baseUrl = 'http://localhost:8000/api';
 const mediaBaseUrl = baseUrl.replace(/\/api\/?$/, '');
 const token = localStorage.getItem('emrs_token');
 if(!token) { window.location.href='admin-login.html'; }
