@@ -262,6 +262,24 @@ function previewEventImage(input) {
   preview.style.display = 'block';
 }
 
+function updatePublishBothVisibility() {
+  const editId = document.getElementById('eventEditId')?.value;
+  const category = document.getElementById('eventCategory')?.value;
+  const publishBothWrap = document.getElementById('publishBothWrap');
+  const publishBothLabel = document.getElementById('publishBothLabel');
+  const publishBoth = document.getElementById('publishBoth');
+  if (!publishBothWrap || !publishBoth) return;
+
+  const canShow = (category === 'event' || category === 'home_slider');
+  publishBothWrap.style.display = canShow ? 'block' : 'none';
+  if (publishBothLabel) {
+    publishBothLabel.textContent = editId
+      ? 'Also update in both Event and Home Slider'
+      : 'Publish this in both Event and Home Slider';
+  }
+  if (!canShow) publishBoth.checked = false;
+}
+
 function fillEventForm(item) {
   document.getElementById('eventEditId').value = item.id || '';
   document.getElementById('eventTitle').value = item.title || '';
@@ -272,6 +290,8 @@ function fillEventForm(item) {
   document.getElementById('eventActive').checked = !!item.active;
   document.getElementById('eventFormTitle').textContent = 'Edit Item';
   document.getElementById('eventSubmitBtn').textContent = 'Update';
+
+  updatePublishBothVisibility();
 
   const preview = document.getElementById('eventImagePreview');
   if (item.image_url) {
@@ -292,12 +312,15 @@ function resetEventForm(defaultCategory) {
   document.getElementById('eventDate').value = '';
   document.getElementById('eventImage').value = '';
   document.getElementById('eventActive').checked = true;
+  const publishBoth = document.getElementById('publishBoth');
+  if (publishBoth) publishBoth.checked = false;
   document.getElementById('eventFormTitle').textContent = defaultCategory === 'home_slider' ? 'Add Home Slider Item' : 'Add Achievement / Event';
   document.getElementById('eventSubmitBtn').textContent = 'Add';
 
   const preview = document.getElementById('eventImagePreview');
   preview.style.display = 'none';
   preview.src = '';
+  updatePublishBothVisibility();
 }
 
 async function loadEventManager(defaultCategory = 'event') {
@@ -327,7 +350,7 @@ async function loadEventManager(defaultCategory = 'event') {
         <div class="mb-2"><label>Short Description (2-3 lines)</label><textarea id="eventShortDescription" class="form-control" rows="2" required></textarea></div>
         <div class="mb-2"><label>Full Description</label><textarea id="eventFullDescription" class="form-control" rows="5"></textarea></div>
         <div class="mb-2"><label>Category</label>
-          <select id="eventCategory" class="form-control">
+          <select id="eventCategory" class="form-control" onchange="updatePublishBothVisibility()">
             <option value="achievement">Achievement</option>
             <option value="event">Event</option>
             <option value="home_slider">Home Slider</option>
@@ -336,6 +359,10 @@ async function loadEventManager(defaultCategory = 'event') {
         <div class="mb-2"><label>Date (Optional)</label><input id="eventDate" class="form-control" type="date"></div>
         <div class="mb-2"><label>Image</label><input type="file" id="eventImage" class="form-control" accept="image/*" onchange="previewEventImage(this)"></div>
         <div class="mb-2"><img id="eventImagePreview" alt="Preview" style="display:none; width:220px; max-width:100%; border:1px solid #d8dee9; border-radius:6px;"></div>
+        <div class="mb-2 form-check" id="publishBothWrap">
+          <input type="checkbox" id="publishBoth" class="form-check-input">
+          <label class="form-check-label" id="publishBothLabel" for="publishBoth">Publish this in both Event and Home Slider</label>
+        </div>
         <div class="mb-2 form-check"><input type="checkbox" id="eventActive" class="form-check-input" checked><label class="form-check-label" for="eventActive">Active</label></div>
         <button id="eventSubmitBtn" class="btn btn-primary" onclick="saveEventItem('${defaultCategory}')">Add</button>
         <button type="button" class="btn btn-secondary" onclick="resetEventForm('${defaultCategory}')">Reset</button>
@@ -364,6 +391,7 @@ async function loadEventManager(defaultCategory = 'event') {
   `;
 
   document.getElementById('eventCategory').value = defaultCategory;
+  updatePublishBothVisibility();
 }
 
 async function saveEventItem(defaultCategory) {
@@ -374,16 +402,58 @@ async function saveEventItem(defaultCategory) {
   const category = document.getElementById('eventCategory').value || defaultCategory;
   const eventDate = document.getElementById('eventDate').value;
   const active = document.getElementById('eventActive').checked;
+  const publishBoth = document.getElementById('publishBoth')?.checked;
   const image = document.getElementById('eventImage').files[0];
+  const shouldSyncBoth = publishBoth && (category === 'event' || category === 'home_slider');
 
-  const formData = new FormData();
-  formData.append('title', title);
-  formData.append('short_description', shortDescription);
-  formData.append('full_description', fullDescription);
-  formData.append('category', category);
-  formData.append('event_date', eventDate);
-  formData.append('active', active);
-  if (image) formData.append('image', image);
+  function buildEventFormData(targetCategory, syncBothOnEdit) {
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('short_description', shortDescription);
+    fd.append('full_description', fullDescription);
+    fd.append('category', targetCategory);
+    if (syncBothOnEdit) {
+      fd.append('categories', 'event,home_slider');
+    }
+    fd.append('event_date', eventDate);
+    fd.append('active', active);
+    if (image) fd.append('image', image);
+    return fd;
+  }
+
+  // Reliable create behavior: explicitly create both records in one click.
+  if (!editId && shouldSyncBoth) {
+    const secondCategory = category === 'event' ? 'home_slider' : 'event';
+    const firstResponse = await fetch(`${baseUrl}/events`, {
+      method: 'POST',
+      body: buildEventFormData(category, false),
+      headers: {'Authorization':'Bearer '+token}
+    });
+
+    if (!firstResponse.ok) {
+      const text = await firstResponse.text();
+      showAlert(`Save failed: ${text}`, 'danger');
+      return;
+    }
+
+    const secondResponse = await fetch(`${baseUrl}/events`, {
+      method: 'POST',
+      body: buildEventFormData(secondCategory, false),
+      headers: {'Authorization':'Bearer '+token}
+    });
+
+    if (!secondResponse.ok) {
+      const text = await secondResponse.text();
+      showAlert(`Second save failed: ${text}`, 'danger');
+      return;
+    }
+
+    showAlert('Created event item in both Event and Home Slider');
+    loadEventManager(defaultCategory);
+    return;
+  }
+
+  const formData = buildEventFormData(category, !!editId && shouldSyncBoth);
 
   const method = editId ? 'PUT' : 'POST';
   const url = editId ? `${baseUrl}/events/${editId}` : `${baseUrl}/events`;
@@ -395,7 +465,11 @@ async function saveEventItem(defaultCategory) {
     return;
   }
 
-  showAlert(editId ? 'Updated event item' : 'Created event item');
+  if (editId && shouldSyncBoth) {
+    showAlert('Updated item in both Event and Home Slider');
+  } else {
+    showAlert(editId ? 'Updated event item' : 'Created event item');
+  }
   loadEventManager(defaultCategory);
 }
 
