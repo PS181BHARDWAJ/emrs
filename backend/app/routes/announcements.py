@@ -4,23 +4,10 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from app.config.database import db
 from app.routes.auth import get_current_admin
 from bson import ObjectId
-import uuid, os
-from pathlib import Path
+import uuid
+from app.utils.storage import save_uploaded_file, get_file_url
 
 router = APIRouter()
-
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-upload_dir = BACKEND_DIR / "uploads" / "announcements"
-upload_dir.mkdir(parents=True, exist_ok=True)
-
-
-def save_file(file: UploadFile) -> str:
-    ext = os.path.splitext(file.filename)[1]
-    name = f"{uuid.uuid4().hex}{ext}"
-    path = upload_dir / name
-    with open(path, "wb") as f:
-        f.write(file.file.read())
-    return f"/uploads/announcements/{name}"
 
 
 def serialize_announcement(item: Dict[str, Any]) -> Dict[str, Any]:
@@ -115,10 +102,12 @@ async def create_announcement(
     image_url = None
     pdf_file_url = None
     if image:
-        image_url = save_file(image)
+        file_id = await save_uploaded_file(db, image, category="announcements")
+        image_url = get_file_url(file_id)
 
     if pdf_file:
-        pdf_file_url = save_file(pdf_file)
+        file_id = await save_uploaded_file(db, pdf_file, category="announcements")
+        pdf_file_url = get_file_url(file_id)
 
     normalized_category = str(category or "notification").lower()
     if normalized_category not in {"whats_new", "notification"}:
@@ -177,10 +166,12 @@ async def update_announcement(
     }
 
     if image:
-        update_data["image_url"] = save_file(image)
+        file_id = await save_uploaded_file(db, image, category="announcements")
+        update_data["image_url"] = get_file_url(file_id)
 
     if pdf_file:
-        update_data["pdf_url"] = save_file(pdf_file)
+        file_id = await save_uploaded_file(db, pdf_file, category="announcements")
+        update_data["pdf_url"] = get_file_url(file_id)
 
     result = await db.announcements.update_one({"_id": ObjectId(announcement_id)}, {"$set": update_data})
     if result.matched_count == 0:

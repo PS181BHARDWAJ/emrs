@@ -1,26 +1,13 @@
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query
 from app.config.database import db
 from app.routes.auth import get_current_admin
 from bson import ObjectId
-import uuid, os
+import uuid
+from app.utils.storage import save_uploaded_file, get_file_url
 
 router = APIRouter()
-
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-upload_dir = BACKEND_DIR / "uploads" / "events"
-upload_dir.mkdir(parents=True, exist_ok=True)
-
-
-def save_file(file: UploadFile) -> str:
-    ext = os.path.splitext(file.filename)[1]
-    name = f"{uuid.uuid4().hex}{ext}"
-    path = upload_dir / name
-    with open(path, "wb") as f:
-        f.write(file.file.read())
-    return f"/uploads/events/{name}"
 
 
 def serialize_event(item: dict) -> dict:
@@ -100,7 +87,8 @@ async def create_event(
 
     image_url = None
     if image:
-        image_url = save_file(image)
+        file_id = await save_uploaded_file(db, image, category="events")
+        image_url = get_file_url(file_id)
 
     group_id = uuid.uuid4().hex if len(target_categories) > 1 else None
 
@@ -167,7 +155,8 @@ async def update_event(
     }
 
     if image:
-        doc["image_url"] = save_file(image)
+        file_id = await save_uploaded_file(db, image, category="events")
+        doc["image_url"] = get_file_url(file_id)
 
     if target_categories:
         group_id = current.get("group_id") or uuid.uuid4().hex

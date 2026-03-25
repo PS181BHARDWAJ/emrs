@@ -9,9 +9,14 @@ function normalizeMediaUrl(url) {
 
   const normalizedUrl = String(url).replace('/uploads/annoucements/', '/uploads/announcements/');
 
-  // If already full URL
+  // If already full URL or GridFS file path
   if (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://')) {
     return normalizedUrl;
+  }
+
+  // If already GridFS API format
+  if (normalizedUrl.startsWith('/api/files/')) {
+    return BASE_URL + normalizedUrl;
   }
 
   // Legacy path (old upload format)

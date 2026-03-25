@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routes import auth, content, events, staff, announcements, calendar, visitors
+from app.routes import auth, content, events, staff, announcements, calendar, visitors, files
 
 app = FastAPI(title="EMRS Dornala CMS")
 
@@ -20,6 +20,7 @@ app.include_router(staff.router, prefix="/api/staff", tags=["staff"])
 app.include_router(announcements.router, prefix="/api/announcements", tags=["announcements"])
 app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
 app.include_router(visitors.router, prefix="/api/visitors", tags=["visitors"])
+app.include_router(files.router, prefix="/api/files", tags=["files"])
 
 import os
 

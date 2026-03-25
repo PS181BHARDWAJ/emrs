@@ -1,25 +1,12 @@
-from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query
 from app.config.database import db
 from app.routes.auth import get_current_admin
 from bson import ObjectId
-import uuid, os
+import uuid
+from app.utils.storage import save_uploaded_file, get_file_url
 
 router = APIRouter()
-
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-upload_dir = BACKEND_DIR / "uploads" / "staff"
-upload_dir.mkdir(parents=True, exist_ok=True)
-
-
-def save_file(file: UploadFile) -> str:
-    ext = os.path.splitext(file.filename)[1]
-    name = f"{uuid.uuid4().hex}{ext}"
-    path = upload_dir / name
-    with open(path, "wb") as f:
-        f.write(file.file.read())
-    return f"/uploads/staff/{name}"
 
 
 def serialize_staff(item: dict) -> dict:
@@ -71,7 +58,8 @@ async def create_staff(
 ):
     photo_url = None
     if photo:
-        photo_url = save_file(photo)
+        file_id = await save_uploaded_file(db, photo, category="staff")
+        photo_url = get_file_url(file_id)
 
     next_order = order
     if next_order is None:
@@ -120,7 +108,8 @@ async def update_staff(
     if order is not None:
         doc["order"] = int(order)
     if photo:
-        doc["photo_url"] = save_file(photo)
+        file_id = await save_uploaded_file(db, photo, category="staff")
+        doc["photo_url"] = get_file_url(file_id)
 
     result = await db.staff.update_one({"_id": ObjectId(staff_id)}, {"$set": doc})
     if result.matched_count == 0:

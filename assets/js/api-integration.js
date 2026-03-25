@@ -32,12 +32,23 @@ function renderEvents(items) {
 
 function normalizeMediaUrl(url) {
   if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) {
+  
+  // Handle full URLs and GridFS API paths
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/api/files/')) {
     return url;
   }
+  
+  // Handle root paths
+  if (url.startsWith('/')) {
+    return url;
+  }
+  
+  // Handle WriteReadData, images, and assets
   if (url.startsWith('WriteReadData/') || url.startsWith('images/') || url.startsWith('assets/')) {
     return `/${url}`;
   }
+  
+  // Handle old /uploads paths
   return `/uploads/${url}`;
 }
 
