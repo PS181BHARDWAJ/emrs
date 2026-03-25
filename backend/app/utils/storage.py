@@ -1,75 +1,87 @@
 """
-MongoDB GridFS-based file storage for persistent uploads.
+MongoDB file storage for persistent uploads.
+Uses a simple collection-based approach compatible with Motor (async).
 Prevents data loss from ephemeral filesystems.
 """
 
-import os
-from io import BytesIO
-from fastapi import UploadFile
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from gridfs import GridFS
 import uuid
 from datetime import datetime
+from fastapi import UploadFile
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from bson import ObjectId
 
 
 async def save_uploaded_file(db: AsyncIOMotorDatabase, file: UploadFile, category: str = "uploads") -> str:
     """
-    Save uploaded file to MongoDB GridFS.
+    Save uploaded file to MongoDB.
     Returns the file_id that can be used to retrieve the file later.
     """
     try:
         # Read file content
         content = await file.read()
         
-        # Create file metadata
-        file_id = f"{uuid.uuid4().hex}_{file.filename}"
-        metadata = {
-            "original_name": file.filename,
-            "content_type": file.content_type,
+        # Create file document
+        file_doc = {
+            "filename": file.filename,
+            "content_type": file.content_type or "application/octet-stream",
             "category": category,
             "size": len(content),
+            "data": content,  # Binary data stored in MongoDB
             "uploaded_at": datetime.utcnow(),
         }
         
-        # Upload to GridFS
-        gfs = GridFS(db)
-        stored_file_id = await gfs.put(
-            BytesIO(content),
-            filename=file_id,
-            metadata=metadata
-        )
-        
-        return str(stored_file_id)
+        # Insert into files collection
+        result = await db.files.insert_one(file_doc)
+        return str(result.inserted_id)
     except Exception as e:
         raise Exception(f"Failed to save file: {str(e)}")
 
 
 async def get_file(db: AsyncIOMotorDatabase, file_id: str) -> dict:
     """
-    Retrieve file from GridFS.
-    Returns dict with 'content' (bytes) and 'metadata' (original_name, content_type, etc).
+    Retrieve file from MongoDB.
+    Returns dict with 'content' (bytes) and 'metadata'.
     """
     try:
-        gfs = GridFS(db)
-        grid_out = await gfs.get(file_id)
-        content = await grid_out.read()
-        metadata = grid_out.metadata or {}
+        from bson import ObjectId
+        
+        # Convert string to ObjectId if needed
+        try:
+            oid = ObjectId(file_id)
+        except:
+            oid = file_id
+        
+        file_doc = await db.files.find_one({"_id": oid})
+        if not file_doc:
+            raise Exception("File not found")
         
         return {
-            "content": content,
-            "metadata": metadata,
-            "filename": grid_out.filename,
+            "content": file_doc.get("data"),
+            "metadata": {
+                "filename": file_doc.get("filename"),
+                "content_type": file_doc.get("content_type"),
+                "category": file_doc.get("category"),
+                "size": file_doc.get("size"),
+                "uploaded_at": file_doc.get("uploaded_at"),
+            },
+            "filename": file_doc.get("filename"),
         }
     except Exception as e:
         raise Exception(f"File not found: {str(e)}")
 
 
 async def delete_file(db: AsyncIOMotorDatabase, file_id: str) -> bool:
-    """Delete a file from GridFS."""
+    """Delete a file from MongoDB."""
     try:
-        gfs = GridFS(db)
-        await gfs.delete(file_id)
-        return True
+        from bson import ObjectId
+        
+        try:
+            oid = ObjectId(file_id)
+        except:
+            oid = file_id
+        
+        result = await db.files.delete_one({"_id": oid})
+        return result.deleted_count > 0
     except Exception as e:
         raise Exception(f"Failed to delete file: {str(e)}")
 

@@ -1,11 +1,9 @@
 """
-File serving endpoint for GridFS-stored files.
+File serving endpoint for MongoDB-stored files.
 """
 
 from fastapi import APIRouter, HTTPException, Path
 from fastapi.responses import StreamingResponse
-import io
-from gridfs import GridFS
 from bson import ObjectId
 from app.config.database import db
 
@@ -15,27 +13,23 @@ router = APIRouter()
 @router.get("/{file_id}/{filename}")
 async def get_file(file_id: str, filename: str = Path(...)):
     """
-    Retrieve a file from GridFS.
+    Retrieve a file from MongoDB.
     URL format: /api/files/{file_id}/{filename}
     """
     try:
-        # Validate ObjectId
+        # Convert string to ObjectId
         try:
             oid = ObjectId(file_id)
         except:
-            # Try as string file_id (for backward compatibility)
-            oid = file_id
+            raise HTTPException(status_code=404, detail="Invalid file ID")
         
-        gfs = GridFS(db)
-        grid_out = await gfs.get(oid)
+        file_doc = await db.files.find_one({"_id": oid})
+        if not file_doc:
+            raise HTTPException(status_code=404, detail="File not found")
         
-        # Read file content
-        content = await grid_out.read()
-        
-        # Get metadata for content-type
-        metadata = grid_out.metadata or {}
-        content_type = metadata.get("content_type", "application/octet-stream")
-        original_name = metadata.get("original_name", filename)
+        content = file_doc.get("data")
+        content_type = file_doc.get("content_type", "application/octet-stream")
+        original_name = file_doc.get("filename", filename)
         
         return StreamingResponse(
             iter([content]),
@@ -44,8 +38,10 @@ async def get_file(file_id: str, filename: str = Path(...)):
                 "Content-Disposition": f'inline; filename="{original_name}"'
             },
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"File not found: {str(e)}")
+        raise HTTPException(status_code=404, detail=f"File not found")
 
 
 @router.get("/{file_id}")
@@ -55,22 +51,19 @@ async def get_file_simple(file_id: str):
     URL format: /api/files/{file_id}
     """
     try:
-        # Validate ObjectId
+        # Convert string to ObjectId
         try:
             oid = ObjectId(file_id)
         except:
-            oid = file_id
+            raise HTTPException(status_code=404, detail="Invalid file ID")
         
-        gfs = GridFS(db)
-        grid_out = await gfs.get(oid)
+        file_doc = await db.files.find_one({"_id": oid})
+        if not file_doc:
+            raise HTTPException(status_code=404, detail="File not found")
         
-        # Read file content
-        content = await grid_out.read()
-        
-        # Get metadata
-        metadata = grid_out.metadata or {}
-        content_type = metadata.get("content_type", "application/octet-stream")
-        original_name = metadata.get("original_name", "file")
+        content = file_doc.get("data")
+        content_type = file_doc.get("content_type", "application/octet-stream")
+        original_name = file_doc.get("filename", "file")
         
         return StreamingResponse(
             iter([content]),
@@ -79,5 +72,7 @@ async def get_file_simple(file_id: str):
                 "Content-Disposition": f'attachment; filename="{original_name}"'
             },
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=404, detail="File not found")
